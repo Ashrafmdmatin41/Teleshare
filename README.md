@@ -1,20 +1,17 @@
 <p align="center"><b>TELESHARE</b></p>
 <p align="center">A efficient and configurable telegram file sharing bot</p>
 
-> [!IMPORTANT]  
-> This bot is currently in [MVP](https://en.m.wikipedia.org/wiki/Minimum_viable_product) Stage. Expect frequent changes and updates. Not yet ready for production use. Use for testing and feedback purposes only.
-
-> [!NOTE]  
-> _Feel free to open an issue for more upcoming features!_
-
+#### DEMO: [BOT LINK](https://t.me/TelezhareBot?start=IjIwMjQtMDUtMzAgMjM6NTM6Mjci)
 #### FEATURES
-- Automatic file backup.
-- Automatic message deletion.
-- Easy to set up.
-- Fast and efficient.
+- CodeXbotz links compatibility.
 - Fully asynchronous.
 - Highly configurable.
+- In-built rate limiter.
 - Multi-channel force subscription.
+- Protect content.
+- Quick Deployment.
+- Toggleable auto file backup.
+- Toggleable auto message delete.
 - Type-hinted for improved code readability.
 - User-friendly interface.
 
@@ -26,14 +23,24 @@
 - [x] Public mode.
 - [x] Quick deployments.
 - [x] Support common file types: `(doc,photo,vid,audio)`.
-- [ ] Toggle Backup.
-- [ ] Help command.
-- [ ] Toggle global mode.
-- [ ] In-built rate limiter.
+- [x] Toggle Backup.
+- [x] Help command.
+- [x] Toggle global mode.
+- [x] In-built rate limiter.
 - [x] Fully remove database models.
-- [ ] Tokenized access.
 - [x] Try again button.
 - [x] add codeXbots file-sharing link compatibility.
+- [ ] Tokenized access.
+
+#### Frequently Asked Questions
+<details>
+<summary>FAQS</summary>
+1. How do i disable automatic deletation:
+
+```
+/option AUTO_DELETE_SECONDS 0
+```
+</details>
 
 #### START-UP REQUIREMENTS
 <details>
@@ -49,13 +56,44 @@
 - BOT_TOKEN
 
 [Mongo database](https://www.mongodb.com)
-- MONGO_DB_URL = mongodb://http
+- MONGO_DB_URL = mongodb+srv
+
+Bot Config
+- `BOT_WORKER (int)`: amount of bot workers, default to 8.
+- `BOT_SESSION (int)`: bot session name, reads from bot directory.
+- `BOT_MAX_MESSAGE_CACHE_SIZE (int)`: amount of message to cache, recommended to cache more than a thousand if your bot is big enough due to scheduling. default to 100.
 
 Main config
-- BACKUP_CHANNEL
-- ROOT_ADMINS_ID
-- FORCE_SUB_CHANNELS
-- PRIVATE_REQUEST
+- `BACKUP_CHANNEL (int)`: file backup channel.
+- `ROOT_ADMINS_ID (list[int])`: bot admins.
+- `PRIVATE_REQUEST (bool)`: enable private request on private channel/group. default to `False`
+- `PROTECT_CONTENT (bool)`: disalllow forwarding and saving of files sent by the bot. default to `True`
+- `FORCE_SUB_CHANNELS (list[int])`: force subscription channels.
+</details>
+
+<details>
+<summary>Bot options</summary>
+
+Set:
+- `FORCE_SUB_MESSAGE (str|int)`: message during force subscription.
+- `START_MESSAGE (str|int)`: a start message 
+- `AUTO_DELETE_MESSAGE (str|int)`: an auto delete messages, {} is the amount of minutes.
+
+- `AUTO_DELETE_SECONDS (int)`: auto deletion in minutes, is set as {} of AUTO_DELETE_MESSAGE.
+- `GLOBAL_MODE (bool)`: toggle everyone to generate a file link.
+- `BACKUP_FILES (bool)`: toggle all files to back up.
+
+
+configure through `/option` command or use `/help option` for more information.
+
+Usage:
+
+    /option key new_value
+    /option key [reply to a message]
+Example:
+
+    /option AUTO_DELETE_SECONDS 600
+    /option FORCE_SUB_MESSAGE: reply to a message.
 </details>
 
 #### DEPLOYMENTS
@@ -96,6 +134,8 @@ start the bot
 ```
 python main.py
 ```
+
+5. You can also create an environment so you don't need to set path.
 
 </details>
 <details>

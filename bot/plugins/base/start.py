@@ -5,27 +5,87 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from bot.config import config
 from bot.database import MongoDB
 from bot.options import options
-from bot.utilities.helpers import DataEncoder, DataValidationError
+from bot.utilities.helpers import DataEncoder, DataValidationError, PyroHelper, RateLimiter
 from bot.utilities.pyrofilters import PyroFilters
-from bot.utilities.pyrotools import FileResolverModel, Pyrotools
+from bot.utilities.pyrotools import FileResolverModel, HelpCmd, Pyrotools
 from bot.utilities.schedule_manager import schedule_manager
 
-database = MongoDB("Zaws-File-Share")
+database = MongoDB(database=config.MONGO_DB_NAME)
+
+
+class FileSender:
+    """Used to manage file sending functions between codexbotz and teleshare."""
+
+    @staticmethod
+    async def codexbotz(
+        client: Client,
+        codex_message_ids: list[int],
+        chat_id: int,
+        from_chat_id: int,
+        protect_content: bool,  # noqa: FBT001
+    ) -> Message | list[Message]:
+        if len(codex_message_ids) == 1:
+            send_files = await client.copy_message(
+                chat_id=chat_id,
+                from_chat_id=from_chat_id,
+                message_id=codex_message_ids[0],
+                protect_content=protect_content,
+            )
+
+        else:
+            send_files = await client.forward_messages(
+                chat_id=chat_id,
+                from_chat_id=from_chat_id,
+                message_ids=codex_message_ids,
+                hide_sender_name=True,
+                protect_content=protect_content,
+            )
+
+        return send_files
+
+    @staticmethod
+    async def teleshare(
+        client: Client,
+        chat_id: int,
+        file_data: list[FileResolverModel],
+        file_origin: int,
+        protect_content: bool,  # noqa: FBT001
+    ) -> Message | list[Message]:
+        if len(file_data) == 1:
+            send_files = await Pyrotools.send_media(
+                client=client,
+                chat_id=chat_id,
+                file_data=file_data[0],
+                protect_content=protect_content,
+            )
+        else:
+            send_files = await Pyrotools.send_media_group(
+                client=client,
+                chat_id=chat_id,
+                file_data=file_data,
+                file_origin=file_origin,
+                protect_content=protect_content,
+            )
+        return send_files
 
 
 @Client.on_message(
     filters.command("start") & filters.private & PyroFilters.subscription(),
     group=0,
 )
+@RateLimiter.hybrid_limiter(func_count=1)
 async def file_start(
     client: Client,
     message: Message,
 ) -> Message:
     """
-    Handle start command with file sharing.
+    Handle start command, it returns files if a link is included otherwise sends the user a request.
+
+    **Usage:**
+        /start [optional file_link]
     """
     if not message.command[1:]:
-        await message.reply(text=options.settings.START_MESSAGE, quote=True)
+        await PyroHelper.option_message(client=client, message=message, option_key=options.settings.START_MESSAGE)
         return message.stop_propagation()
 
     # shouldn't overwrite existing id it already exists
@@ -49,46 +109,45 @@ async def file_start(
             await message.reply(text="Attempted to resolve link: Got invalid link.")
             return message.stop_propagation()
 
-        if len(codex_message_ids) == 1:
-            send_files = await client.copy_message(
-                chat_id=message.chat.id,
-                from_chat_id=config.BACKUP_CHANNEL,
-                message_id=codex_message_ids[0],
-            )
-
-        else:
-            send_files = await client.forward_messages(
-                chat_id=message.chat.id,
-                from_chat_id=config.BACKUP_CHANNEL,
-                message_ids=codex_message_ids,
-                hide_sender_name=True,
-            )
+        send_files = await FileSender.codexbotz(
+            client=client,
+            codex_message_ids=codex_message_ids,
+            chat_id=message.chat.id,
+            from_chat_id=config.BACKUP_CHANNEL,
+            protect_content=config.PROTECT_CONTENT,
+        )
         if not send_files:
             await message.reply(text="Attempted to fetch files: Does not exist.")
             return message.stop_propagation()
     else:
         file_document = file_document[0]
-        files = [FileResolverModel(**file) for file in file_document["files"]]
+        file_origin = file_document["file_origin"]
+        file_data = [FileResolverModel(**file) for file in file_document["files"]]
 
-        if len(files) == 1:
-            send_files = await Pyrotools.send_media(client=client, chat_id=message.chat.id, file_data=files[0])
-        else:
-            file_origin = file_document["file_origin"]
-            send_files = await Pyrotools.send_media_group(
-                client=client,
-                chat_id=message.chat.id,
-                file_data=files,
-                file_origin=file_origin,
-            )
+        send_files = await FileSender.teleshare(
+            client=client,
+            chat_id=message.chat.id,
+            file_data=file_data,
+            file_origin=file_origin,
+            protect_content=config.PROTECT_CONTENT,
+        )
 
     delete_n_seconds = options.settings.AUTO_DELETE_SECONDS
 
     if delete_n_seconds != 0:
         schedule_delete_message = [msg.id for msg in send_files] if isinstance(send_files, list) else [send_files.id]
 
-        custom_caption = options.settings.CUSTOM_CAPTION
-        forward_caption = await message.reply(text=custom_caption.format(int(delete_n_seconds / 60)))
-        schedule_delete_message.append(forward_caption.id)
+        auto_delete_message = (
+            options.settings.AUTO_DELETE_MESSAGE.format(int(delete_n_seconds / 60))
+            if not isinstance(options.settings.AUTO_DELETE_MESSAGE, int)
+            else options.settings.AUTO_DELETE_MESSAGE
+        )
+        auto_delete_message_reply = await PyroHelper.option_message(
+            client=client,
+            message=message,
+            option_key=auto_delete_message,
+        )
+        schedule_delete_message.append(auto_delete_message_reply.id)
 
         await schedule_manager.schedule_delete(
             client=client,
@@ -100,6 +159,7 @@ async def file_start(
 
 
 @Client.on_message(filters.command("start") & filters.private, group=1)
+@RateLimiter.hybrid_limiter(func_count=1)
 async def return_start(
     client: Client,
     message: Message,
@@ -118,9 +178,19 @@ async def return_start(
         link = f"https://t.me/{client.me.username}?start={message.command[1]}"  # type: ignore[reportOptionalMemberAccess]
         buttons.append([InlineKeyboardButton(text="Try Again", url=link)])
 
-    return await message.reply(
-        text=options.settings.FORCE_SUB_MESSAGE,
+    return await PyroHelper.option_message(
+        client=client,
+        message=message,
+        option_key=options.settings.FORCE_SUB_MESSAGE,
         reply_markup=InlineKeyboardMarkup(buttons),
         disable_web_page_preview=True,
         quote=True,
     )
+
+
+HelpCmd.set_help(
+    command="start",
+    description=file_start.__doc__,
+    allow_global=True,
+    allow_non_admin=True,
+)
