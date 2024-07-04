@@ -30,7 +30,8 @@
 - [x] Fully remove database models.
 - [x] Try again button.
 - [x] Auto link generator.
-- [x] add codeXbots file-sharing link compatibility.
+- [x] Add codeXbots file-sharing link compatibility.
+- [x] Ability to delete a link.
 - [ ] Tokenized access.
 
 #### CURRENT AVAILABLE COMMANDS:
@@ -41,6 +42,7 @@ Use: `/help [command name]` for more informations.
 3. `/broadcast`: Broadcasts a message to multiple subscribed users
 this command may take awhile depending on user count.
 4. `/option`: Use to configure database options. See [START-UP REQUIREMENTS](#start-up-requirements) bot options for more informations.
+5. `/delete_link`: Delete an accessible link from the database and delete the corresponding file from the backup channel.
 
 #### Frequently Asked Questions
 <details>
@@ -104,7 +106,7 @@ Usage:
 Example:
 
     /option AUTO_DELETE_SECONDS 600
-    /option FORCE_SUB_MESSAGE: reply to a message.
+    /option FORCE_SUB_MESSAGE [reply to a message.]
 </details>
 
 #### DEPLOYMENTS
@@ -122,18 +124,8 @@ cd Teleshare
 
 2. Create an .env file refer to [.env_example](.env_example) for referencee.
 
-3. Use "deploy.sh" if you don't wanna
-bother setting up python path. be sure to give deploy.sh a permission to run.
-```
-bash deploy.sh
-```
 
-4. Manually deployment
-set python path
-```
-export PYTHONPATH="${PYTHONPATH}:$PWD"
-```
-or create an python environment (poetry / virtualenv)
+4. Create an python environment (poetry / virtualenv): `Optional`
 ```
 pip install virtualenv
 virtualenv myenv
@@ -142,18 +134,16 @@ source myenv/bin/activate
 windows:
 myenv\Scripts\activate
 ```
-install requirements
+5. Install requirements
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
-change directory to bot
+
+6. Start the bot.
 ```
-cd bot
+python -m bot.main
 ```
-start the bot
-```
-python main.py
-```
+
 
 </details>
 <details>
