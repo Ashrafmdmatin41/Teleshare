@@ -1,3 +1,5 @@
+import uuid
+
 from pyrogram import filters
 from pyrogram.client import Client
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
@@ -16,7 +18,7 @@ database = MongoDB()
     filters.private
     & PyroFilters.admin(allow_global=True)
     & PyroFilters.user_not_in_conversation()
-    & (filters.audio | filters.photo | filters.video | filters.document),
+    & (filters.audio | filters.photo | filters.video | filters.document | filters.sticker),
 )
 @RateLimiter.hybrid_limiter(func_count=1)
 async def auto_link_gen(client: Client, message: ConvoMessage) -> Message | None:
@@ -25,14 +27,15 @@ async def auto_link_gen(client: Client, message: ConvoMessage) -> Message | None
     if getattr(client.me, "id", None) == message.from_user.id or not config.AUTO_GENERATE_LINK:
         return None
 
-    file_type = message.document or message.video or message.photo or message.audio
+    file_type = message.document or message.video or message.photo or message.audio or message.sticker
     message_id = message.id
 
     if options.settings.BACKUP_FILES:
         backup_file = await message.copy(chat_id=config.BACKUP_CHANNEL)
         message_id = backup_file[0].id if isinstance(backup_file, list) else backup_file.id
 
-    file_link = DataEncoder.encode_data(str(message.date))
+    unique_link = f"{uuid.uuid4().int}"
+    file_link = DataEncoder.encode_data(unique_link)
     file_origin = config.BACKUP_CHANNEL if options.settings.BACKUP_FILES else message.chat.id
 
     file_data = FileResolverModel(
